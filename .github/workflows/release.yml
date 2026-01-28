@@ -1,0 +1,73 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build binaries
+        run: bun run build
+
+      - name: Package binaries
+        run: |
+          cd dist
+          for binary in ycli-*; do
+            tar -czvf "${binary}.tar.gz" -C . "$binary"
+            mv "$binary" "${binary}.tar.gz" ../
+          done
+          cd ..
+          mv dist/*.tar.gz . 2>/dev/null || true
+
+      - name: Calculate checksums
+        id: checksums
+        run: |
+          echo "SHA256_DARWIN_ARM64=$(shasum -a 256 ycli-darwin-arm64.tar.gz | cut -d ' ' -f 1)" >> $GITHUB_OUTPUT
+          echo "SHA256_DARWIN_X64=$(shasum -a 256 ycli-darwin-x64.tar.gz | cut -d ' ' -f 1)" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ycli-darwin-arm64.tar.gz
+            ycli-darwin-x64.tar.gz
+          generate_release_notes: true
+
+      - name: Update Homebrew Tap
+        env:
+          TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+
+          # 生成 Formula
+          sed -e "s/{{VERSION}}/$VERSION/g" \
+              -e "s/{{SHA256_DARWIN_ARM64}}/${{ steps.checksums.outputs.SHA256_DARWIN_ARM64 }}/g" \
+              -e "s/{{SHA256_DARWIN_X64}}/${{ steps.checksums.outputs.SHA256_DARWIN_X64 }}/g" \
+              homebrew/ycli.rb.template > ycli.rb
+
+          # 克隆 Tap 仓库并更新
+          git clone https://x-access-token:${TAP_GITHUB_TOKEN}@github.com/wisdom921/homebrew-tap.git tap
+          mkdir -p tap/Formula
+          cp ycli.rb tap/Formula/
+          cd tap
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add Formula/ycli.rb
+          git commit -m "Update ycli to v$VERSION" || exit 0
+          git push
