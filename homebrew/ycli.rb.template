@@ -15,7 +15,11 @@ class Ycli < Formula
   end
 
   def install
-    bin.install "ycli"
+    if Hardware::CPU.arm?
+      bin.install "ycli-darwin-arm64" => "ycli"
+    else
+      bin.install "ycli-darwin-x64" => "ycli"
+    end
   end
 
   test do

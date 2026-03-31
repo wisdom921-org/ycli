@@ -4,6 +4,10 @@
 
 `architecture.md` - 项目技术架构与设计决策，修改任何代码时必读
 
+## 活跃任务
+
+`workflow/260331-cli-to-agent.md` - 将 ycli 从 CLI 工具箱改造为个人 AI Agent
+
 ## 全局重要记忆
 
 - **CLI 框架**：使用 citty 构建命令行界面
