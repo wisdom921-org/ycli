@@ -10,13 +10,13 @@
 
 ## TODO
 
-- [ ] 1.1 安装依赖
-- [ ] 1.2 新建 `vitest.config.ts`
-- [ ] 1.3 更新 `package.json` scripts
-- [ ] 1.4 修改 `src/config/env.ts`
-- [ ] 1.5 修改 `src/commands/env.ts`
-- [ ] 1.6 新建测试文件
-- [ ] 1.7 验证
+- [x] 1.1 安装依赖
+- [x] 1.2 新建 `vitest.config.ts`
+- [x] 1.3 更新 `package.json` scripts
+- [x] 1.4 修改 `src/config/env.ts`
+- [x] 1.5 修改 `src/commands/env.ts`
+- [x] 1.6 新建测试文件
+- [x] 1.7 验证
 
 ## 实施规格
 
@@ -282,4 +282,6 @@ describe('ConfigSchema', () => {
 
 | 错误描述 | 尝试次数 | 解决方案 |
 |----------|----------|----------|
-| （暂无） | | |
+| `ai` 包安装版本为 6.0.142（>= v5，满足 needsApproval 需求） | 1 | 无需额外处理 |
+| biome lint 报 import 顺序错误（vitest.config.ts）及 env.test.ts 格式问题 | 1 | 调整 import 顺序、将多行 expect 合并为单行 |
+| index.test.ts 中同 env 名（'dev'）被模块级缓存命中导致含 ai 段测试失败 | 1 | 每个测试使用不同 env 名（'env-no-ai'、'env-with-ai' 等）绕过缓存 |

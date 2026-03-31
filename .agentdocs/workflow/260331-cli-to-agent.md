@@ -4,8 +4,8 @@
 
 | 问题 | 回答 |
 |------|------|
-| 当前在哪个阶段？ | 子任务 1 规格已完成，待实施 |
-| 下一步做什么？ | 实施子任务 1：基础设施 |
+| 当前在哪个阶段？ | 子任务 1 已完成，待实施子任务 2 |
+| 下一步做什么？ | 实施子任务 2：Provider 层 |
 | 任务目标是什么？ | 将 ycli 从 CLI 工具箱改造为个人 AI Agent |
 | 关键发现有哪些？ | 见阶段性结论 |
 | 已完成了什么？ | 见 TODO |
@@ -66,12 +66,12 @@ src/agent/
 
 ### 子任务 1：基础设施（依赖 + 配置 + env init）→ [详细规格](260331-cli-to-agent/subtask-1-infrastructure.md)
 
-- [ ] 安装依赖（AI SDK + Vitest）
-- [ ] 新建 `vitest.config.ts` + 更新 package.json scripts
-- [ ] 修改 `src/config/env.ts` 增加 ai 配置段
-- [ ] 修改 `src/commands/env.ts` 增加 AI 配置交互
-- [ ] 新建配置层测试（env.test.ts + index.test.ts）
-- [ ] lint + typecheck + test + 手动验证
+- [x] 安装依赖（AI SDK + Vitest）
+- [x] 新建 `vitest.config.ts` + 更新 package.json scripts
+- [x] 修改 `src/config/env.ts` 增加 ai 配置段
+- [x] 修改 `src/commands/env.ts` 增加 AI 配置交互
+- [x] 新建配置层测试（env.test.ts + index.test.ts）
+- [x] lint + typecheck + test + 手动验证
 
 ### 子任务 2：Provider 层 → [详细规格](260331-cli-to-agent/subtask-2-provider.md)
 

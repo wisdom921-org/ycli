@@ -22,6 +22,22 @@ export const ConfigSchema = z.object({
       baseUrl: z.string().url(),
     })
     .optional(),
+
+  // AI 助手配置（可选）
+  ai: z
+    .object({
+      // LLM 提供商
+      provider: z.enum(['anthropic', 'openai', 'ollama']).default('anthropic'),
+      // 模型 ID
+      model: z.string().default('claude-sonnet-4-20250514'),
+      // Anthropic API Key
+      anthropicApiKey: z.string().optional(),
+      // OpenAI API Key
+      openaiApiKey: z.string().optional(),
+      // Ollama 服务地址
+      ollamaBaseUrl: z.string().default('http://localhost:11434'),
+    })
+    .optional(),
 })
 
 export type Config = z.infer<typeof ConfigSchema>
