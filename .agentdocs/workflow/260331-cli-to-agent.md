@@ -4,8 +4,8 @@
 
 | 问题 | 回答 |
 |------|------|
-| 当前在哪个阶段？ | 子任务 1 已完成，待实施子任务 2 |
-| 下一步做什么？ | 实施子任务 2：Provider 层 |
+| 当前在哪个阶段？ | 子任务 1 已完成，子任务 2-4 详细规格已编写，待实施子任务 2 |
+| 下一步做什么？ | 按顺序实施子任务 2 → 3 → 4 |
 | 任务目标是什么？ | 将 ycli 从 CLI 工具箱改造为个人 AI Agent |
 | 关键发现有哪些？ | 见阶段性结论 |
 | 已完成了什么？ | 见 TODO |
@@ -20,8 +20,8 @@ ycli 当前是 v0.1.0 的 CLI 脚手架，只有 env 配置管理和 example 示
 
 | 模块 | 选型 | 理由 |
 |------|------|------|
-| LLM 框架 | Vercel AI SDK (`ai` v5) | 统一多 provider API，内置 tool calling + approval 流程 |
-| Provider | `@ai-sdk/anthropic` + `@ai-sdk/openai` + `ollama-ai-provider-v2` | 覆盖云端 + 本地模型 |
+| LLM 框架 | Vercel AI SDK (`ai` v6) | 统一多 provider API，内置 tool calling + approval 流程 |
+| Provider | `@ai-sdk/anthropic` + `@ai-sdk/openai` + `ollama-ai-provider-v2` + OpenRouter（复用 `@ai-sdk/openai`） | 覆盖云端 + 本地 + 多模型网关 |
 | 交互 | `readline` + `@clack/prompts` | readline 做 REPL 输入，clack 做写操作确认 |
 | 流式输出 | `streamText` + `textStream` async iterator | 终端实时输出 |
 | 测试 | Vitest | AI SDK 官方 mock provider 支持，异步性能优于 Bun Test |
@@ -73,10 +73,13 @@ src/agent/
 - [x] 新建配置层测试（env.test.ts + index.test.ts）
 - [x] lint + typecheck + test + 手动验证
 
-### 子任务 2：Provider 层 → [详细规格](260331-cli-to-agent/subtask-2-provider.md)
+### 子任务 2：Provider 层（含 OpenRouter 支持）→ [详细规格](260331-cli-to-agent/subtask-2-provider.md)
 
-- [ ] 新建 `src/agent/provider.ts`（createProviderRegistry + getModel）
-- [ ] 测试 + lint + typecheck 验证
+- [ ] 修改 `src/config/env.ts`（ConfigSchema 新增 openrouter）
+- [ ] 修改 `src/commands/env.ts`（env init + env show + 新增 env set 命令）
+- [ ] 新建 `src/agent/provider.ts`（四 provider 注册 + getModel）
+- [ ] 更新/新建测试（env.test.ts + provider.test.ts）
+- [ ] lint + typecheck + test 验证
 
 ### 子任务 3：工具层 → [详细规格](260331-cli-to-agent/subtask-3-tools.md)
 

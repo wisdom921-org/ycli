@@ -13,6 +13,9 @@
 | MongoDB ODM | mongoose | MongoDB 对象建模 |
 | 配置校验 | zod | 运行时类型校验 |
 | 代码工具 | biome | 代码格式化与检查 |
+| LLM 框架 | ai (Vercel AI SDK v6) | 统一多 provider 接口，内置 tool calling + approval |
+| LLM Provider | @ai-sdk/anthropic, @ai-sdk/openai, ollama-ai-provider-v2 | Claude / OpenAI / 本地 Ollama 模型 |
+| 测试 | vitest | 单元测试，支持 AI SDK mock provider |
 
 ## 目录结构
 
@@ -25,6 +28,7 @@ ycli/
 │   │   ├── db/               # 数据库服务
 │   │   └── http/             # HTTP 服务
 │   ├── config/               # 配置管理
+│   │   └── __tests__/        # 配置单元测试
 │   └── utils/                # 工具函数
 ├── scripts/                  # 构建脚本
 ├── homebrew/                 # Homebrew Formula 模板
@@ -50,6 +54,15 @@ ycli/
 ### 临时覆盖
 
 所有命令支持 `--env` 参数临时使用指定环境，不影响 `.current` 文件。
+
+### AI 配置（可选）
+
+`ycli env init` 可选配置 AI 助手，存储在 config 文件的 `ai` 段中：
+
+- `provider`：LLM 提供商（`anthropic` / `openai` / `ollama`，默认 `anthropic`）
+- `model`：模型 ID（默认 `claude-sonnet-4-20250514`）
+- `anthropicApiKey` / `openaiApiKey`：对应 provider 的 API Key
+- `ollamaBaseUrl`：Ollama 服务地址（默认 `http://localhost:11434`）
 
 ## 数据库连接
 
