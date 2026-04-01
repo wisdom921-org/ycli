@@ -26,7 +26,10 @@
 #### 依赖
 
 ```typescript
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import type { Config } from '@/config/env.ts'
+import { CONFIG_DIR } from '@/config/paths.ts'
 ```
 
 #### 导出
@@ -35,6 +38,22 @@ import type { Config } from '@/config/env.ts'
 export const buildSystemPrompt = (config: Config, env?: string | null): string
 ```
 
+#### 业务上下文注入
+
+函数内部尝试读取 `~/.ycli/business-context.md`，文件存在则将内容注入到 system prompt 末尾的「业务上下文」段落中。文件不存在则跳过，不报错。
+
+```typescript
+const loadBusinessContext = (): string | null => {
+  try {
+    return readFileSync(join(CONFIG_DIR, 'business-context.md'), 'utf-8')
+  } catch {
+    return null
+  }
+}
+```
+
+用户可在 `~/.ycli/business-context.md` 中自由编写业务背景信息（如表的业务含义、常用查询模式、字段枚举值说明等），Agent 会自动读取并用于理解用户意图。
+
 #### System Prompt 模板
 
 ```
@@ -42,9 +61,30 @@ export const buildSystemPrompt = (config: Config, env?: string | null): string
 
 ## 能力
 你可以通过工具执行以下操作：
-- **MySQL 数据库**：查询（mysqlQuery）和写入（mysqlExecute，需确认）
-- **MongoDB 数据库**：查询（mongoQuery）和写入（mongoExecute，需确认）
-- **HTTP 请求**：发起请求（httpRequest，非 GET 需确认）
+
+### 数据库 Schema 自省（零成本调用，优先使用）
+- **mysqlListTables**：列出 MySQL 所有表（含注释和预估行数）
+- **mysqlDescribeTable**：查看指定表的列定义、索引和样本数据
+- **mongoListCollections**：列出 MongoDB 所有集合（含预估文档数）
+- **mongoDescribeCollection**：采样推断集合字段结构和类型
+
+### 数据库读写
+- **mysqlQuery**：执行 MySQL 只读查询（SELECT 等），自动执行
+- **mysqlExecute**：执行 MySQL 写操作（INSERT/UPDATE/DELETE/DDL），需用户确认
+- **mongoQuery**：查询 MongoDB 数据（find/findOne/countDocuments），自动执行
+- **mongoAggregate**：执行 MongoDB 聚合管道，自动执行
+- **mongoExecute**：执行 MongoDB 写操作，需用户确认
+
+### HTTP 请求
+- **httpRequest**：发起 HTTP 请求，GET 自动执行，其他方法需用户确认
+
+## 工作流程：Look → Plan → Query
+遇到数据库相关请求时，**必须**遵循以下三步流程：
+1. **Look（查看结构）**：先调用自省工具（mysqlListTables/mysqlDescribeTable 或 mongoListCollections/mongoDescribeCollection）了解数据库 schema。**绝对不要跳过此步骤直接查询。**
+2. **Plan（规划查询）**：根据 schema 信息规划查询方案，选择正确的表/集合名、字段名和查询条件。
+3. **Query（执行查询）**：执行实际的查询或写操作。写操作执行前先用读操作确认当前数据状态。
+
+在同一个对话中，如果已经 Look 过某个表/集合的 schema，不需要重复调用自省工具。
 
 ## 当前环境
 - 环境名称：{env ?? '未知'}
@@ -58,12 +98,15 @@ export const buildSystemPrompt = (config: Config, env?: string | null): string
 3. 返回数据时使用简洁的表格或列表格式
 4. 遇到错误时分析原因并给出修复建议
 5. 不要编造不存在的表名或集合名——不确定时先查询 schema
+
+{businessContext ? `## 业务上下文\n\n${businessContext}` : ''}
 ```
 
 **动态部分**：
 - 环境名称从 `env` 参数获取
 - 数据库连接信息从 `config` 提取，MongoDB URI 脱敏（隐藏密码）
 - HTTP baseUrl 仅在配置存在时展示
+- 业务上下文从 `~/.ycli/business-context.md` 读取，文件不存在则不展示该段落
 
 ---
 
@@ -278,6 +321,22 @@ describe('Agent REPL', () => {
     it('无 HTTP 配置时不显示 HTTP 信息')
       - 传入无 http 的 config
       - 验证不包含 'HTTP Base URL'
+
+    it('包含所有 10 个工具名称')
+      - 验证返回字符串包含 mysqlListTables、mysqlDescribeTable、
+        mongoListCollections、mongoDescribeCollection、mongoAggregate 等全部工具名
+
+    it('包含 Look → Plan → Query 工作流引导')
+      - 验证返回字符串包含 'Look'、'Plan'、'Query' 三步描述
+      - 验证包含"绝对不要跳过此步骤"的约束语句
+
+    it('注入 business-context.md 内容')
+      - mock readFileSync 返回测试业务上下文
+      - 验证返回字符串包含该内容和"业务上下文"段落标题
+
+    it('business-context.md 不存在时正常工作')
+      - mock readFileSync 抛出 ENOENT
+      - 验证返回字符串不包含"业务上下文"段落
   })
 
   describe('generateText 集成', () => {
