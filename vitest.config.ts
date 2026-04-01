@@ -8,6 +8,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),
+      zod: resolve(__dirname, 'node_modules/zod/src/index.ts'),
     },
   },
 })

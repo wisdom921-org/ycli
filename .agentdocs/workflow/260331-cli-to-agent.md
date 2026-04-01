@@ -4,8 +4,8 @@
 
 | 问题 | 回答 |
 |------|------|
-| 当前在哪个阶段？ | 子任务 1 已完成，子任务 2-4 详细规格已编写，待实施子任务 2 |
-| 下一步做什么？ | 按顺序实施子任务 2 → 3 → 4 |
+| 当前在哪个阶段？ | 子任务 1-2 已完成，待实施子任务 3 |
+| 下一步做什么？ | 实施子任务 3：工具层 |
 | 任务目标是什么？ | 将 ycli 从 CLI 工具箱改造为个人 AI Agent |
 | 关键发现有哪些？ | 见阶段性结论 |
 | 已完成了什么？ | 见 TODO |
@@ -75,11 +75,12 @@ src/agent/
 
 ### 子任务 2：Provider 层（含 OpenRouter 支持）→ [详细规格](260331-cli-to-agent/subtask-2-provider.md)
 
-- [ ] 修改 `src/config/env.ts`（ConfigSchema 新增 openrouter）
-- [ ] 修改 `src/commands/env.ts`（env init + env show + 新增 env set 命令）
-- [ ] 新建 `src/agent/provider.ts`（四 provider 注册 + getModel）
-- [ ] 更新/新建测试（env.test.ts + provider.test.ts）
-- [ ] lint + typecheck + test 验证
+- [x] 修改 `src/config/env.ts`（ConfigSchema 新增 openrouter）
+- [x] 修改 `src/commands/env.ts`（env init + env show + 新增 env set 命令）
+- [x] 新建 `src/agent/provider.ts`（四 provider 注册 + getModel）
+- [x] 更新/新建测试（env.test.ts + provider.test.ts）
+- [x] lint + typecheck + test 验证
+- [x] 修复 vitest + Bun 兼容（Zod 4 alias + test 脚本改用 `bun --bun`）
 
 ### 子任务 3：工具层 → [详细规格](260331-cli-to-agent/subtask-3-tools.md)
 
@@ -124,3 +125,13 @@ src/agent/
 - 测试框架选 Vitest 而非 Bun Test：AI SDK 官方 mock provider、异步性能 15x 优、fake timers 支持
 
 > 沉淀：待定（实施完成后评估是否需要写入 architecture.md）
+
+### 3. Provider 层实施（2026-04-01）
+
+- 四 provider 支持：Anthropic、OpenAI、Ollama、OpenRouter（用户主要使用 Ollama + OpenRouter）
+- OpenRouter 复用 `createOpenAI({ baseURL: 'https://openrouter.ai/api/v1' })`，无额外依赖
+- `createRegistry()` 无状态设计，每次调用创建新 registry（仅启动和切换模型时调用）
+- `ycli env set` 新命令支持直接修改配置字段，如 `ycli env set ai.model anthropic/claude-sonnet-4`
+- Vitest 4 + Bun 兼容 bug（[oven-sh/bun#21614](https://github.com/oven-sh/bun/issues/21614)）：Bun 的 SSR 模块求值器对 `import *; export { name }` 命名空间重导出模式求值失败，Zod 4 内部使用了此模式导致 `z` 为 `undefined`。Workaround：vitest.config.ts 添加 `zod` alias 指向 `node_modules/zod/src/index.ts`；test 脚本改用 `bun --bun vitest run`
+
+> 沉淀：已写入 `architecture.md`「已知问题与 Workaround」段落

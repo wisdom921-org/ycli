@@ -10,8 +10,8 @@
     "lint": "biome check .",
     "format": "biome format --write .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "test": "bun --bun vitest run",
+    "test:watch": "bun --bun vitest"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.13",

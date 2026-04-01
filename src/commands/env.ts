@@ -111,6 +111,7 @@ const initCommand = defineCommand({
           anthropicApiKey?: string
           openaiApiKey?: string
           ollamaBaseUrl?: string
+          openrouterApiKey?: string
         }
       | undefined
 
@@ -123,6 +124,7 @@ const initCommand = defineCommand({
           { value: 'anthropic', label: 'Anthropic (Claude)' },
           { value: 'openai', label: 'OpenAI (GPT)' },
           { value: 'ollama', label: 'Ollama (本地模型)' },
+          { value: 'openrouter', label: 'OpenRouter (多模型网关)' },
         ],
       })
       if (p.isCancel(provider)) {
@@ -160,6 +162,21 @@ const initCommand = defineCommand({
           process.exit(0)
         }
         ai = { provider: 'openai', model, openaiApiKey: apiKey }
+      } else if (provider === 'openrouter') {
+        const apiKey = await p.password({ message: 'OpenRouter API Key' })
+        if (p.isCancel(apiKey)) {
+          p.cancel('已取消')
+          process.exit(0)
+        }
+        const model = await p.text({
+          message: '模型 ID',
+          defaultValue: 'anthropic/claude-sonnet-4',
+        })
+        if (p.isCancel(model)) {
+          p.cancel('已取消')
+          process.exit(0)
+        }
+        ai = { provider: 'openrouter', model, openrouterApiKey: apiKey }
       } else {
         const ollamaBaseUrl = await p.text({
           message: 'Ollama 服务地址',
@@ -275,10 +292,74 @@ const showCommand = defineCommand({
               ...config.ai,
               anthropicApiKey: config.ai.anthropicApiKey ? '******' : undefined,
               openaiApiKey: config.ai.openaiApiKey ? '******' : undefined,
+              openrouterApiKey: config.ai.openrouterApiKey ? '******' : undefined,
             }
           : undefined,
       }
       console.log(JSON.stringify(safeConfig, null, 2))
+    } catch (error) {
+      logger.error((error as Error).message)
+      process.exit(1)
+    }
+  },
+})
+
+// ycli env set <key> <value>
+const setCommand = defineCommand({
+  meta: {
+    name: 'set',
+    description: '修改配置字段（如 ai.model、ai.provider）',
+  },
+  args: {
+    key: {
+      type: 'positional',
+      description: '配置路径（如 ai.model）',
+      required: true,
+    },
+    value: {
+      type: 'positional',
+      description: '新值',
+      required: true,
+    },
+    env: {
+      type: 'string',
+      description: '指定环境（默认当前环境）',
+    },
+  },
+  run({ args }) {
+    try {
+      const env = args.env || getCurrentEnv()
+      if (!env) {
+        logger.error('未设置当前环境，请先运行 ycli env init 或指定 --env')
+        process.exit(1)
+      }
+      const config = loadConfig(args.env)
+
+      // 按 '.' 拆分路径，设置嵌套字段
+      const keys = args.key.split('.')
+      const section = keys[0]
+      const field = keys[1]
+      if (!section || !field || keys.length !== 2) {
+        logger.error('配置路径格式：section.field（如 ai.model）')
+        process.exit(1)
+      }
+
+      // biome-ignore lint/suspicious/noExplicitAny: 需要动态设置嵌套字段
+      const obj = config as any
+      // 确保 section 存在
+      if (obj[section] === undefined) {
+        obj[section] = {}
+      }
+
+      // mysql.port 需要数字转换
+      const value = section === 'mysql' && field === 'port' ? Number(args.value) : args.value
+
+      obj[section][field] = value
+
+      // 校验修改后的配置
+      const validated = ConfigSchema.parse(obj)
+      saveConfig(env, validated)
+      logger.success(`${args.key} = ${args.value}`)
     } catch (error) {
       logger.error((error as Error).message)
       process.exit(1)
@@ -297,5 +378,6 @@ export const envCommand = defineCommand({
     use: useCommand,
     list: listCommand,
     show: showCommand,
+    set: setCommand,
   },
 })

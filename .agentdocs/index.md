@@ -16,6 +16,6 @@
 - **数据库**：Drizzle ORM (MySQL) + Mongoose (MongoDB)，按需懒加载连接
 - **构建目标**：仅 macOS (darwin-arm64, darwin-x64)
 - **分发方式**：Homebrew Tap (wisdom921/tap)
-- **AI SDK**：Vercel AI SDK v6，支持 Anthropic/OpenAI/Ollama 多 provider
-- **测试框架**：Vitest，运行 `bun run test`
-- **AI 配置**：`ycli env init` 可选配置 AI 助手（provider + model + API Key）
+- **AI SDK**：Vercel AI SDK v6，支持 Anthropic/OpenAI/Ollama/OpenRouter 四 provider
+- **测试框架**：Vitest（通过 `bun --bun` 运行），Zod 需 alias workaround，详见 architecture.md
+- **AI 配置**：`ycli env init` 可选配置 AI 助手；`ycli env set` 可直接修改配置字段

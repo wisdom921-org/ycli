@@ -27,7 +27,7 @@ export const ConfigSchema = z.object({
   ai: z
     .object({
       // LLM 提供商
-      provider: z.enum(['anthropic', 'openai', 'ollama']).default('anthropic'),
+      provider: z.enum(['anthropic', 'openai', 'ollama', 'openrouter']).default('anthropic'),
       // 模型 ID
       model: z.string().default('claude-sonnet-4-20250514'),
       // Anthropic API Key
@@ -36,6 +36,8 @@ export const ConfigSchema = z.object({
       openaiApiKey: z.string().optional(),
       // Ollama 服务地址
       ollamaBaseUrl: z.string().default('http://localhost:11434'),
+      // OpenRouter API Key
+      openrouterApiKey: z.string().optional(),
     })
     .optional(),
 })

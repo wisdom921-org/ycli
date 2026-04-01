@@ -45,6 +45,19 @@ describe('ConfigSchema', () => {
     expect(result.ai?.ollamaBaseUrl).toBe('http://localhost:11434')
   })
 
+  it('解析含 openrouter ai 配置', () => {
+    const result = ConfigSchema.parse({
+      ...baseConfig,
+      ai: {
+        provider: 'openrouter',
+        model: 'anthropic/claude-sonnet-4',
+        openrouterApiKey: 'or-xxx',
+      },
+    })
+    expect(result.ai?.provider).toBe('openrouter')
+    expect(result.ai?.openrouterApiKey).toBe('or-xxx')
+  })
+
   it('拒绝无效 provider', () => {
     expect(() => ConfigSchema.parse({ ...baseConfig, ai: { provider: 'invalid' } })).toThrow()
   })

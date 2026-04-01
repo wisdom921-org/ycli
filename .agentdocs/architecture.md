@@ -14,8 +14,8 @@
 | 配置校验 | zod | 运行时类型校验 |
 | 代码工具 | biome | 代码格式化与检查 |
 | LLM 框架 | ai (Vercel AI SDK v6) | 统一多 provider 接口，内置 tool calling + approval |
-| LLM Provider | @ai-sdk/anthropic, @ai-sdk/openai, ollama-ai-provider-v2 | Claude / OpenAI / 本地 Ollama 模型 |
-| 测试 | vitest | 单元测试，支持 AI SDK mock provider |
+| LLM Provider | @ai-sdk/anthropic, @ai-sdk/openai, ollama-ai-provider-v2 | Claude / OpenAI / 本地 Ollama / OpenRouter（复用 @ai-sdk/openai） |
+| 测试 | vitest（通过 `bun --bun` 运行） | 单元测试，支持 AI SDK mock provider |
 
 ## 目录结构
 
@@ -50,6 +50,7 @@ ycli/
 - `ycli env use <env>` - 切换环境
 - `ycli env list` - 列出所有环境
 - `ycli env show` - 显示当前配置
+- `ycli env set <key> <value>` - 直接修改配置字段（如 `ai.model`、`ai.provider`）
 
 ### 临时覆盖
 
@@ -59,10 +60,12 @@ ycli/
 
 `ycli env init` 可选配置 AI 助手，存储在 config 文件的 `ai` 段中：
 
-- `provider`：LLM 提供商（`anthropic` / `openai` / `ollama`，默认 `anthropic`）
+- `provider`：LLM 提供商（`anthropic` / `openai` / `ollama` / `openrouter`，默认 `anthropic`）
 - `model`：模型 ID（默认 `claude-sonnet-4-20250514`）
-- `anthropicApiKey` / `openaiApiKey`：对应 provider 的 API Key
+- `anthropicApiKey` / `openaiApiKey` / `openrouterApiKey`：对应 provider 的 API Key
 - `ollamaBaseUrl`：Ollama 服务地址（默认 `http://localhost:11434`）
+
+配置修改：`ycli env set <key> <value>` 可直接修改字段（如 `ycli env set ai.model anthropic/claude-sonnet-4`），无需重跑 init。
 
 ## 数据库连接
 
@@ -104,3 +107,25 @@ ycli/
 brew tap wisdom921/tap
 brew install ycli
 ```
+
+## 已知问题与 Workaround
+
+### Bun + Vitest 模块解析 bug
+
+**问题**：Bun 的 SSR 模块求值器对 `import * as X from '...'; export { X }` 命名空间重导出模式求值失败，导致导出值为 `undefined`。Zod 4 内部使用了此模式，在 Vitest 下 `import { z } from 'zod'` 会得到 `undefined`。
+
+**追踪**：[oven-sh/bun#21614](https://github.com/oven-sh/bun/issues/21614)。影响 Bun 1.3.x + Vitest 4 + 任何使用命名空间重导出的包。Vitest 官方不打算修复（[vitest#5551](https://github.com/vitest-dev/vitest/issues/5551)），认为属于 Bun 侧问题。
+
+**Workaround**：在 `vitest.config.ts` 中添加 `resolve.alias` 直接指向源文件，绕过 package exports 解析：
+
+```typescript
+resolve: {
+  alias: {
+    zod: resolve(__dirname, 'node_modules/zod/src/index.ts'),
+  },
+}
+```
+
+同时 test 脚本需使用 `bun --bun vitest run`（而非 `vitest run`，后者会走 Node 运行时）。
+
+**注意**：后续新增依赖若在 Vitest 中出现 `undefined is not an object` 错误，优先检查该依赖是否使用了命名空间重导出模式，并用同样的 alias 方式解决。Bun 修复此 bug 后可移除所有相关 alias。
