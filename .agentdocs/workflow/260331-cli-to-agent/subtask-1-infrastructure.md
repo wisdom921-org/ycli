@@ -27,7 +27,7 @@ bun add ai @ai-sdk/anthropic @ai-sdk/openai ollama-ai-provider-v2
 bun add -D vitest
 ```
 
-安装后确认 `ai` 版本 >= 5.0（`needsApproval` 从 v5 开始支持），若不对则 `bun add ai@^5.0.0`。
+实际安装版本为 `ai@^6.0.142`（v6），`needsApproval` 从 v5 开始支持，v6 完全兼容。
 
 ### 1.2 新建 `vitest.config.ts`
 

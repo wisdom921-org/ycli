@@ -30,7 +30,7 @@ ycli 当前是 v0.1.0 的 CLI 脚手架，只有 env 配置管理和 example 示
 ### 核心架构
 
 ```
-ycli chat       → 启动 Agent REPL
+ycli            → 无子命令时启动 Agent REPL
 ycli env ...    → 现有环境管理命令
 
 Agent REPL 循环：
@@ -58,8 +58,7 @@ src/agent/
 
 - `src/config/env.ts` — 扩展 ConfigSchema，增加 `ai` 配置段
 - `src/commands/env.ts` — `ycli env init` 增加 AI 配置交互
-- `src/index.ts` — 删除 example，新增 chat 子命令
-- `src/commands/chat.ts` — 新建，chat 子命令入口（动态 import Agent REPL）
+- `src/index.ts` — 删除 example，添加 `run` 回调（无子命令时启动 Agent REPL）
 - `src/commands/example.ts` — 删除
 - `package.json` — 添加 AI SDK + Vitest 依赖
 
