@@ -664,4 +664,6 @@ describe('agent tools', () => {
 
 | 错误描述 | 尝试次数 | 解决方案 |
 |----------|----------|----------|
-| （暂无） | | |
+| Zod 4 的 `z.record()` 需要 key+value 两个参数，与 Zod 3 单参数不同 | 1 | 改为 `z.record(z.string(), z.unknown())` |
+| `Record<string, number>` 不兼容 MongoDB driver 6.x 的 `Sort` 类型 | 1 | 使用 `as unknown as Sort` 类型断言 |
+| Vitest `vi.mock` 工厂函数被提升到文件顶部，引用的 mock 变量在运行时为 `undefined` | 1 | 通过 `vi.hoisted()` 声明 mock 变量 |

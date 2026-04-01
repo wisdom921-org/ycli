@@ -9,12 +9,12 @@
 
 ## TODO
 
-- [ ] 修改 `src/config/env.ts`（ConfigSchema 新增 openrouter）
-- [ ] 修改 `src/commands/env.ts`（env init + env show + 新增 env set）
-- [ ] 新建 `src/agent/provider.ts`（createRegistry + getModel）
-- [ ] 更新测试 `src/config/__tests__/env.test.ts`
-- [ ] 新建测试 `src/agent/__tests__/provider.test.ts`
-- [ ] lint + typecheck + test 验证
+- [x] 修改 `src/config/env.ts`（ConfigSchema 新增 openrouter）
+- [x] 修改 `src/commands/env.ts`（env init + env show + 新增 env set）
+- [x] 新建 `src/agent/provider.ts`（createRegistry + getModel）
+- [x] 更新测试 `src/config/__tests__/env.test.ts`
+- [x] 新建测试 `src/agent/__tests__/provider.test.ts`
+- [x] lint + typecheck + test 验证
 
 ## 实施规格
 
@@ -280,4 +280,5 @@ describe('getModel', () => {
 
 | 错误描述 | 尝试次数 | 解决方案 |
 |----------|----------|----------|
-| （暂无） | | |
+| Bun SSR 模块求值器对 `import *; export { name }` 命名空间重导出模式求值失败，Zod 4 内部使用此模式导致 `z` 为 `undefined` | 1 | vitest.config.ts 添加 `zod` alias 指向 `node_modules/zod/src/index.ts` |
+| Vitest 通过 Node 运行时执行时与 Bun 环境不一致 | 1 | test 脚本改用 `bun --bun vitest run` |
