@@ -24,6 +24,11 @@ ycli/
 ├── src/
 │   ├── index.ts              # CLI 入口，命令注册
 │   ├── commands/             # 命令实现
+│   ├── agent/                # AI Agent 核心（子任务 2 起逐步建设）
+│   │   ├── provider.ts       # 多 provider 管理（已实现）
+│   │   ├── system-prompt.ts  # 动态 system prompt（子任务 4）
+│   │   ├── index.ts          # REPL 主循环（子任务 4）
+│   │   └── tools/            # Agent 工具定义（已实现：MySQL 4 + MongoDB 5 + HTTP 1）
 │   ├── services/             # 业务逻辑层
 │   │   ├── db/               # 数据库服务
 │   │   └── http/             # HTTP 服务
@@ -74,6 +79,7 @@ ycli/
 - 懒加载连接，首次调用 `getDb()` 时建立
 - 单例模式，复用连接
 - Schema 定义在 `drizzle/schema.ts`
+- `getMysqlConnection()` 暴露 raw mysql2 connection，供 Agent 工具执行 raw SQL；与 `getDb()` 共享同一底层连接，外部禁止单独关闭
 
 ### MongoDB (Mongoose)
 
