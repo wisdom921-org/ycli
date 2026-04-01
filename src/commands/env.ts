@@ -98,11 +98,95 @@ const initCommand = defineCommand({
       }
     }
 
+    // AI 配置（可选）
+    const configureAi = await p.confirm({
+      message: '是否配置 AI 助手?',
+      initialValue: false,
+    })
+
+    let ai:
+      | {
+          provider: string
+          model: string
+          anthropicApiKey?: string
+          openaiApiKey?: string
+          ollamaBaseUrl?: string
+        }
+      | undefined
+
+    if (configureAi && !p.isCancel(configureAi)) {
+      p.log.step('AI 助手配置')
+
+      const provider = await p.select({
+        message: '选择 LLM 提供商',
+        options: [
+          { value: 'anthropic', label: 'Anthropic (Claude)' },
+          { value: 'openai', label: 'OpenAI (GPT)' },
+          { value: 'ollama', label: 'Ollama (本地模型)' },
+        ],
+      })
+      if (p.isCancel(provider)) {
+        p.cancel('已取消')
+        process.exit(0)
+      }
+
+      if (provider === 'anthropic') {
+        const apiKey = await p.password({ message: 'Anthropic API Key' })
+        if (p.isCancel(apiKey)) {
+          p.cancel('已取消')
+          process.exit(0)
+        }
+        const model = await p.text({
+          message: '模型 ID',
+          defaultValue: 'claude-sonnet-4-20250514',
+        })
+        if (p.isCancel(model)) {
+          p.cancel('已取消')
+          process.exit(0)
+        }
+        ai = { provider: 'anthropic', model, anthropicApiKey: apiKey }
+      } else if (provider === 'openai') {
+        const apiKey = await p.password({ message: 'OpenAI API Key' })
+        if (p.isCancel(apiKey)) {
+          p.cancel('已取消')
+          process.exit(0)
+        }
+        const model = await p.text({
+          message: '模型 ID',
+          defaultValue: 'gpt-4o',
+        })
+        if (p.isCancel(model)) {
+          p.cancel('已取消')
+          process.exit(0)
+        }
+        ai = { provider: 'openai', model, openaiApiKey: apiKey }
+      } else {
+        const ollamaBaseUrl = await p.text({
+          message: 'Ollama 服务地址',
+          defaultValue: 'http://localhost:11434',
+        })
+        if (p.isCancel(ollamaBaseUrl)) {
+          p.cancel('已取消')
+          process.exit(0)
+        }
+        const model = await p.text({
+          message: '模型 ID',
+          defaultValue: 'llama3',
+        })
+        if (p.isCancel(model)) {
+          p.cancel('已取消')
+          process.exit(0)
+        }
+        ai = { provider: 'ollama', model, ollamaBaseUrl }
+      }
+    }
+
     // 验证并保存配置
     const config = ConfigSchema.parse({
       mysql: { ...mysql, port: Number(mysql.port) },
       mongo: { uri: mongoUri },
       http,
+      ai,
     })
 
     saveConfig(env, config)
@@ -186,6 +270,13 @@ const showCommand = defineCommand({
           uri: config.mongo.uri.replace(/\/\/[^:]+:[^@]+@/, '//***:***@'),
         },
         http: config.http,
+        ai: config.ai
+          ? {
+              ...config.ai,
+              anthropicApiKey: config.ai.anthropicApiKey ? '******' : undefined,
+              openaiApiKey: config.ai.openaiApiKey ? '******' : undefined,
+            }
+          : undefined,
       }
       console.log(JSON.stringify(safeConfig, null, 2))
     } catch (error) {
