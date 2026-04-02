@@ -11,13 +11,13 @@
 
 ## TODO
 
-- [ ] 新建 `src/agent/system-prompt.ts`
-- [ ] 新建 `src/agent/index.ts`
-- [ ] 修改 `src/index.ts`
-- [ ] 删除 `src/commands/example.ts`
-- [ ] 新建测试 `src/agent/__tests__/repl.test.ts`
-- [ ] lint + typecheck + test + build 验证
-- [ ] 更新 `.agentdocs/architecture.md`
+- [x] 新建 `src/agent/system-prompt.ts`
+- [x] 新建 `src/agent/index.ts`
+- [x] 修改 `src/index.ts`
+- [x] 删除 `src/commands/example.ts`
+- [x] 新建测试 `src/agent/__tests__/repl.test.ts`
+- [x] lint + typecheck + test + build 验证
+- [x] 更新 `.agentdocs/architecture.md`
 
 ## 实施规格
 
@@ -412,4 +412,6 @@ new MockLanguageModelV4({
 
 | 错误描述 | 尝试次数 | 解决方案 |
 |----------|----------|----------|
-| （暂无） | | |
+| MockLanguageModelV3 tool-call 的 `args` 字段应为 `input`（V3 协议变更） | 2 | V3 spec 中 tool-call content 使用 `input: string` 而非 `args: string`，检查 `@ai-sdk/provider` 类型定义确认 |
+| `maxSteps` 在 AI SDK v6 不存在 | 1 | 替换为 `stopWhen: stepCountIs(N)` |
+| MockLanguageModelV3 的 `usage.inputTokens` 需要完整字段（noCache/cacheRead/cacheWrite） | 1 | 补全所有必需字段，提取为 `mockUsage` 常量复用 |

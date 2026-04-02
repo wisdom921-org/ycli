@@ -4,8 +4,8 @@
 
 | 问题 | 回答 |
 |------|------|
-| 当前在哪个阶段？ | 子任务 1-3 已完成，待实施子任务 4 |
-| 下一步做什么？ | 实施子任务 4：Agent REPL |
+| 当前在哪个阶段？ | 子任务 1-4 已完成 |
+| 下一步做什么？ | 后续体验增强（流式输出、会话持久化等） |
 | 任务目标是什么？ | 将 ycli 从 CLI 工具箱改造为个人 AI Agent |
 | 关键发现有哪些？ | 见阶段性结论 |
 | 已完成了什么？ | 见 TODO |
@@ -93,9 +93,9 @@ src/agent/
 
 ### 子任务 4：Agent REPL → [详细规格](260331-cli-to-agent/subtask-4-repl.md)
 
-- [ ] 新建 system prompt + REPL 循环 + `ycli chat` 子命令 + 入口改造
-- [ ] 测试 + lint + typecheck + build 验证
-- [ ] 更新 `.agentdocs/architecture.md`
+- [x] 新建 system prompt + REPL 循环 + 入口改造
+- [x] 测试 + lint + typecheck + build 验证
+- [x] 更新 `.agentdocs/architecture.md`
 
 ### 后续：体验增强
 
