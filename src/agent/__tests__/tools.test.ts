@@ -1,5 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+// 写工具 execute 内部调用 confirm，需 mock
+const { mockConfirm } = vi.hoisted(() => ({
+  mockConfirm: vi.fn().mockResolvedValue(true),
+}))
+
+vi.mock('@clack/prompts', () => ({
+  confirm: mockConfirm,
+  isCancel: vi.fn(() => false),
+}))
+
+vi.mock('@/utils/logger.ts', () => ({
+  default: { info: vi.fn(), error: vi.fn(), success: vi.fn(), warn: vi.fn() },
+}))
+
 // vi.hoisted 确保 mock 变量在 vi.mock 提升后可用
 const {
   mockQuery,
@@ -203,12 +217,8 @@ describe('mysql 操作工具', () => {
     expect((result as { error: string }).error).toContain('只读查询')
   })
 
-  it('mysqlExecute 有 needsApproval: true', () => {
-    const tool = createMysqlExecute()
-    expect(tool.needsApproval).toBe(true)
-  })
-
-  it('mysqlExecute 执行写操作并返回结果', async () => {
+  it('mysqlExecute 确认后执行写操作并返回结果', async () => {
+    mockConfirm.mockResolvedValueOnce(true)
     const execResult = { affectedRows: 1, insertId: 10 }
     mockExecute.mockResolvedValueOnce([execResult])
 
@@ -375,7 +385,8 @@ describe('mongo 操作工具', () => {
     expect((result as { error: string }).error).toContain('$out/$merge')
   })
 
-  it('mongoExecute insertOne 调用正确', async () => {
+  it('mongoExecute 确认后 insertOne 调用正确', async () => {
+    mockConfirm.mockResolvedValueOnce(true)
     mockInsertOne.mockResolvedValueOnce({ insertedId: 'abc' })
 
     const tool = createMongoExecute()
@@ -387,38 +398,45 @@ describe('mongo 操作工具', () => {
     expect(result).toEqual({ insertedId: 'abc' })
   })
 
-  it('mongoExecute 有 needsApproval: true', () => {
+  it('mongoExecute 拒绝时返回错误', async () => {
+    mockConfirm.mockResolvedValueOnce(false)
     const tool = createMongoExecute()
-    expect(tool.needsApproval).toBe(true)
+    const result = await tool.execute?.(
+      { collection: 'users', operation: 'insertOne', filter: {}, data: { name: 'test' } },
+      { toolCallId: 'tc1', messages: [], abortSignal: undefined as unknown as AbortSignal },
+    )
+    expect(result).toHaveProperty('error')
+    expect(mockInsertOne).not.toHaveBeenCalled()
   })
 })
 
 // ─── HTTP 工具 ───
 
 describe('http tool', () => {
-  it('httpRequest GET 请求 needsApproval 返回 false', async () => {
+  it('httpRequest GET 请求不触发确认', async () => {
+    const responseData = { ok: true }
+    mockOfetch.mockResolvedValueOnce(responseData)
+
     const tool = createHttpRequest()
-    // needsApproval 是 async 函数，传入参数验证
-    const result = await (
-      tool.needsApproval as (input: Record<string, unknown>) => Promise<boolean>
-    )({
-      method: 'GET',
-      url: 'http://test.com',
-      timeout: 10000,
-    })
-    expect(result).toBe(false)
+    await tool.execute?.(
+      { url: 'http://test.com', method: 'GET', timeout: 10000 },
+      { toolCallId: 'tc1', messages: [], abortSignal: undefined as unknown as AbortSignal },
+    )
+    // GET 不调用 confirm
+    expect(mockConfirm).not.toHaveBeenCalled()
   })
 
-  it('httpRequest POST 请求 needsApproval 返回 true', async () => {
+  it('httpRequest POST 请求触发确认', async () => {
+    mockConfirm.mockResolvedValueOnce(true)
+    const responseData = { ok: true }
+    mockOfetch.mockResolvedValueOnce(responseData)
+
     const tool = createHttpRequest()
-    const result = await (
-      tool.needsApproval as (input: Record<string, unknown>) => Promise<boolean>
-    )({
-      method: 'POST',
-      url: 'http://test.com',
-      timeout: 10000,
-    })
-    expect(result).toBe(true)
+    await tool.execute?.(
+      { url: 'http://test.com', method: 'POST', timeout: 10000 },
+      { toolCallId: 'tc1', messages: [], abortSignal: undefined as unknown as AbortSignal },
+    )
+    expect(mockConfirm).toHaveBeenCalled()
   })
 
   it('httpRequest 发起请求并返回响应', async () => {

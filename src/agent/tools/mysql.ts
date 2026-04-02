@@ -1,6 +1,8 @@
+import * as p from '@clack/prompts'
 import { tool } from 'ai'
 import { z } from 'zod'
 import { getMysqlConnection } from '@/services/db/drizzle.ts'
+import logger from '@/utils/logger.ts'
 
 const MAX_ROWS = 500
 
@@ -98,15 +100,20 @@ export const createMysqlQuery = (envOverride?: string) =>
     },
   })
 
-/** 执行写操作（INSERT/UPDATE/DELETE/DDL），需用户确认 */
+/** 执行写操作（INSERT/UPDATE/DELETE/DDL），execute 内部确认 */
 export const createMysqlExecute = (envOverride?: string) =>
   tool({
-    description: '执行 MySQL 写操作（INSERT/UPDATE/DELETE/DDL 等）。需要用户确认后执行。',
+    description: '执行 MySQL 写操作（INSERT/UPDATE/DELETE/DDL 等）。执行前会请求用户确认。',
     inputSchema: z.object({
       sql: z.string().describe('要执行的 SQL 语句'),
     }),
-    needsApproval: true,
     execute: async ({ sql }) => {
+      logger.info('工具调用: mysqlExecute')
+      console.log(sql)
+      let confirmed = await p.confirm({ message: '是否执行此 SQL？' })
+      if (p.isCancel(confirmed)) confirmed = false
+      if (!confirmed) return { error: '用户已拒绝此操作' }
+
       const conn = await getMysqlConnection(envOverride)
       const [result] = await conn.execute(sql)
       return { result }

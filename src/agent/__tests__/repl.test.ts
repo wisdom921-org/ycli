@@ -174,43 +174,55 @@ describe('generateText 集成', () => {
     expect(result.text).toBe('查询结果: 1')
   })
 
-  it('写工具产生 approval request', async () => {
+  it('写工具通过 execute 内部确认后执行', async () => {
     const { generateText, tool, stepCountIs } = await import('ai')
     const { MockLanguageModelV3 } = await import('ai/test')
     const { z } = await import('zod')
 
+    let callCount = 0
     const model = new MockLanguageModelV3({
-      doGenerate: async () => ({
-        content: [
-          {
-            type: 'tool-call' as const,
-            toolCallId: 'tc1',
-            toolName: 'writeDb',
-            input: JSON.stringify({ sql: 'DELETE FROM t' }),
-          },
-        ],
-        finishReason: { unified: 'stop' as const, raw: undefined },
-        usage: mockUsage,
-        warnings: [],
-      }),
+      doGenerate: async () => {
+        callCount++
+        if (callCount === 1) {
+          return {
+            content: [
+              {
+                type: 'tool-call' as const,
+                toolCallId: 'tc1',
+                toolName: 'writeDb',
+                input: JSON.stringify({ sql: 'DELETE FROM t' }),
+              },
+            ],
+            finishReason: { unified: 'stop' as const, raw: undefined },
+            usage: mockUsage,
+            warnings: [],
+          }
+        }
+        return {
+          content: [{ type: 'text' as const, text: '删除完成' }],
+          finishReason: { unified: 'stop' as const, raw: undefined },
+          usage: mockUsage,
+          warnings: [],
+        }
+      },
     })
 
+    // 模拟 execute 内部确认通过
+    const executeFn = vi.fn().mockResolvedValue({ affected: 1 })
     const tools = {
       writeDb: tool({
         description: 'write to db',
         inputSchema: z.object({ sql: z.string() }),
-        needsApproval: true,
-        execute: async () => ({ result: 'ok' }),
+        execute: executeFn,
       }),
     }
 
-    const result = await generateText({ model, prompt: 'delete', tools, stopWhen: stepCountIs(1) })
-    const approvalReqs = result.content.filter((c) => c.type === 'tool-approval-request')
-    expect(approvalReqs.length).toBeGreaterThan(0)
-    expect(approvalReqs[0]?.toolCall.toolName).toBe('writeDb')
+    const result = await generateText({ model, prompt: 'delete', tools, stopWhen: stepCountIs(5) })
+    expect(executeFn).toHaveBeenCalled()
+    expect(result.text).toBe('删除完成')
   })
 
-  it('approval 拒绝后模型收到拒绝信息', async () => {
+  it('写工具 execute 内部拒绝后返回错误结果', async () => {
     const { generateText, tool, stepCountIs } = await import('ai')
     const { MockLanguageModelV3 } = await import('ai/test')
     const { z } = await import('zod')
@@ -243,38 +255,18 @@ describe('generateText 集成', () => {
       },
     })
 
+    // execute 内部拒绝：返回 error 而非抛异常
+    const executeFn = vi.fn().mockResolvedValue({ error: '用户已拒绝此操作' })
     const tools = {
       writeDb: tool({
         description: 'write to db',
         inputSchema: z.object({ sql: z.string() }),
-        needsApproval: true,
-        execute: async () => ({ result: 'ok' }),
+        execute: executeFn,
       }),
     }
 
-    // 第一次调用：获取 approval 请求
-    const result1 = await generateText({ model, prompt: 'delete', tools, stopWhen: stepCountIs(1) })
-    const approvalReqs = result1.content.filter((c) => c.type === 'tool-approval-request')
-    expect(approvalReqs.length).toBeGreaterThan(0)
-
-    // 构造拒绝响应
-    const approvalResponses = approvalReqs.map((req) => ({
-      type: 'tool-approval-response' as const,
-      approvalId: req.approvalId,
-      approved: false,
-      reason: '用户已拒绝',
-    }))
-
-    // 第二次调用：带拒绝响应继续对话
-    const result2 = await generateText({
-      model,
-      tools,
-      messages: [
-        ...result1.response.messages,
-        { role: 'tool' as const, content: approvalResponses },
-      ],
-    })
-
-    expect(result2.text).toBe('操作已取消')
+    const result = await generateText({ model, prompt: 'delete', tools, stopWhen: stepCountIs(5) })
+    expect(executeFn).toHaveBeenCalled()
+    expect(result.text).toBe('操作已取消')
   })
 })

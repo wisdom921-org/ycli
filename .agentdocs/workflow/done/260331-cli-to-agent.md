@@ -4,8 +4,8 @@
 
 | 问题 | 回答 |
 |------|------|
-| 当前在哪个阶段？ | 子任务 1-4 已完成 |
-| 下一步做什么？ | 后续体验增强（流式输出、会话持久化等） |
+| 当前在哪个阶段？ | 已完成 |
+| 下一步做什么？ | 无（后续待办已记录在 index.md） |
 | 任务目标是什么？ | 将 ycli 从 CLI 工具箱改造为个人 AI Agent |
 | 关键发现有哪些？ | 见阶段性结论 |
 | 已完成了什么？ | 见 TODO |
@@ -97,11 +97,31 @@ src/agent/
 - [x] 测试 + lint + typecheck + build 验证
 - [x] 更新 `.agentdocs/architecture.md`
 
+### 运行时验证与集成测试（2026-04-02 补充）
+
+- [x] 修复 Bug：citty 子命令路由后父命令 run 仍触发
+- [x] 修复 Bug：未配置环境时 loadConfig 抛出未捕获异常
+- [x] 新增 CLI 子进程冒烟测试（6 个用例）
+- [x] 新增 Agent 循环集成测试（6 个用例）
+- [x] 导出 runAgentLoop 供集成测试调用
+- [x] 整理测试方案文档 `.agentdocs/testing.md`
+- [x] typecheck + lint + test（76 个测试全部通过）
+
+### 手动冒烟修复（2026-04-02 补充）
+
+- [x] 修复：OpenRouter 默认走 Responses API，需强制指向 Chat Completions API
+- [x] 重构：写操作确认从 AI SDK needsApproval 改为工具 execute 内部确认（兼容 Chat API）
+- [x] 修复：消息历史只保留文本，不保留中间 tool-call/tool-result（避免 Chat API schema 不兼容）
+- [x] 修复：readline 与 @clack/prompts 争抢 stdin，需 rl.pause/resume
+- [x] 修复：LLM 传 JSON 字符串而非对象，mongoExecute/httpRequest 需 JSON.parse
+- [x] typecheck + lint + test（75 个测试全部通过）
+
 ### 后续：体验增强
 
 - [ ] 流式输出优化
 - [ ] 会话历史持久化
 - [ ] Markdown 渲染美化终端输出
+- [ ] 工具执行失败时在终端打印警告（当前错误只传给 LLM，用户不可见）
 
 ### 后续：远程接入
 
@@ -124,10 +144,10 @@ src/agent/
 
 - 选用 Vercel AI SDK 而非 Claude Agent SDK：后者仅限 Claude，且偏向有状态长运行 Agent；AI SDK 多 provider 支持是硬需求
 - REPL 用 readline 而非 ink：ink 太重，个人工具不需要 React 渲染层
-- 写操作确认用 AI SDK 原生 approval 流程而非自行拦截：减少自定义代码，SDK 原生支持更可靠
+- ~~写操作确认用 AI SDK 原生 approval 流程~~（已推翻：needsApproval 有多个已知 bug，改为工具 execute 内部确认，见结论 #7）
 - 测试框架选 Vitest 而非 Bun Test：AI SDK 官方 mock provider、异步性能 15x 优、fake timers 支持
 
-> 沉淀：待定（实施完成后评估是否需要写入 architecture.md）
+> 沉淀：无需（选型已体现在 architecture.md 技术栈表；needsApproval 推翻后新方案已在结论 #7 沉淀）
 
 ### 3. Provider 层实施（2026-04-01）
 
@@ -149,7 +169,7 @@ src/agent/
 - 无合适第三方库：Vercel AI SDK 无预置 DB 工具，LangChain Toolkit 依赖 TypeORM 与 Drizzle 冲突，MCP Server 增加运行时复杂度。自实现 ~200 行、零额外依赖
 - 子任务 4 的 system prompt 需配合：注入 `~/.ycli/business-context.md` 业务上下文 + "Look → Plan → Query" 工作流引导
 
-> 沉淀：待定（实施完成后评估是否需要写入 architecture.md）
+> 沉淀：无需（工具设计已体现在 architecture.md 工具层表格和 system-prompt.ts 中）
 
 ### 5. 工具层实施（2026-04-01）
 
@@ -160,3 +180,24 @@ src/agent/
 - 27 个工具层测试全部通过，typecheck + lint 零错误
 
 > 沉淀：无需（实施细节随代码演进，不写入 architecture.md）
+
+### 6. 运行时验证与 Bug 修复（2026-04-02）
+
+- 实际运行 CLI 发现 2 个 bug：citty 子命令路由后父 run 仍触发（`ycli env list` 会同时启动 Agent）、未配置环境时 `loadConfig` 抛未捕获异常显示 stack trace
+- 原有 64 个单元测试全是 mock 的，无法覆盖集成边界——正是这类测试盲区导致 bug 漏过
+- 新增 CLI 子进程冒烟测试（参考 oclif/commander.js 行业标准，用 `child_process.spawn` 运行真实 CLI 进程检查输出）和 Agent 循环集成测试（用 AI SDK 官方 `MockLanguageModelV3` 让 `generateText` 走真实路径）
+- 踩坑：Bun 的 `process.env` 是 Proxy，vitest 注入的 `TEST=true` 让 consola 静默输出，spread 后 delete 无法清除；最终用白名单方式构建子进程环境
+- 测试方案已整理为 `.agentdocs/testing.md`
+
+> 沉淀：已写入 `testing.md`（测试分层 + 坑点）和 `architecture.md`（citty workaround）
+
+### 7. 手动冒烟与兼容性修复（2026-04-02）
+
+- OpenRouter 的 `@ai-sdk/openai` 默认走 Responses API，工具调用时报 `Invalid Responses API request`。通过覆盖 `languageModel` 指向 `chat` 解决
+- AI SDK 的 `needsApproval` 产生的 `tool-approval-response` 消息不兼容 Chat Completions API，导致后续请求报 schema 错误。**重构为工具 execute 内部确认**，去掉 needsApproval，确认/拒绝结果作为标准 tool result 返回
+- `result.response.messages` 中的工具调用中间消息在 Chat API 后续请求中也不兼容。**改为只将最终文本加入消息历史**
+- readline 与 @clack/prompts 争抢 stdin 导致确认后卡死。在 `runAgentLoop` 调用前后 `rl.pause()/resume()` 解决
+- LLM 对 `z.unknown()` 类型字段可能传 JSON 字符串而非对象。mongoExecute 的 `data` 和 httpRequest 的 `body` 添加 `typeof === 'string' ? JSON.parse : identity` 处理
+- 工具执行失败时错误只传给 LLM、用户不可见，导致 LLM 静默重试（最多 10 步）。记为后续体验增强项
+
+> 沉淀：已写入 `architecture.md`（5 条已知问题/设计决策）

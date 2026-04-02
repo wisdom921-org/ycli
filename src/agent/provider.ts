@@ -24,10 +24,16 @@ export const createRegistry = (aiConfig: AiConfig) => {
   }
 
   if (aiConfig.openrouterApiKey) {
-    providers.openrouter = createOpenAI({
+    // @ai-sdk/openai v3 默认走 Responses API（POST /responses），
+    // OpenRouter 仅支持 Chat Completions API，需将 languageModel 指向 chat
+    const openrouterProvider = createOpenAI({
       baseURL: 'https://openrouter.ai/api/v1',
       apiKey: aiConfig.openrouterApiKey,
     })
+    providers.openrouter = {
+      ...openrouterProvider,
+      languageModel: openrouterProvider.chat,
+    }
   }
 
   providers.ollama = createOllama({ baseURL: aiConfig.ollamaBaseUrl })

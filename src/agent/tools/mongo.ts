@@ -1,8 +1,10 @@
+import * as p from '@clack/prompts'
 import { tool } from 'ai'
 import type { Document, Sort } from 'mongodb'
 import mongoose from 'mongoose'
 import { z } from 'zod'
 import { connectMongo } from '@/services/db/mongoose.ts'
+import logger from '@/utils/logger.ts'
 
 const MAX_DOCS = 500
 
@@ -168,10 +170,10 @@ export const createMongoAggregate = (envOverride?: string) =>
     },
   })
 
-/** 执行 MongoDB 写操作，需用户确认 */
+/** 执行 MongoDB 写操作，execute 内部确认 */
 export const createMongoExecute = (envOverride?: string) =>
   tool({
-    description: '执行 MongoDB 写操作。需要用户确认后执行。',
+    description: '执行 MongoDB 写操作。执行前会请求用户确认。',
     inputSchema: z.object({
       collection: z.string().describe('集合名称'),
       operation: z
@@ -191,8 +193,16 @@ export const createMongoExecute = (envOverride?: string) =>
         .describe('过滤条件（update/delete 操作需要）'),
       data: z.unknown().optional().describe('写入数据（insert/update/replace 操作需要）'),
     }),
-    needsApproval: true,
-    execute: async ({ collection, operation, filter, data }) => {
+    execute: async ({ collection, operation, filter, data: rawData }) => {
+      logger.info(`工具调用: mongoExecute (${operation})`)
+      console.log(JSON.stringify({ collection, operation, filter, data: rawData }, null, 2))
+      let confirmed = await p.confirm({ message: '是否执行此操作？' })
+      if (p.isCancel(confirmed)) confirmed = false
+      if (!confirmed) return { error: '用户已拒绝此操作' }
+
+      // LLM 可能传 JSON 字符串而非对象，需要解析
+      const data = typeof rawData === 'string' ? JSON.parse(rawData) : rawData
+
       const coll = await getCollection(collection, envOverride)
 
       switch (operation) {

@@ -9,74 +9,46 @@ import { createAgentTools } from '@/agent/tools/index.ts'
 import { getCurrentEnv, loadConfig } from '@/config/index.ts'
 import logger from '@/utils/logger.ts'
 
-const runAgentLoop = async (
+/**
+ * 单轮 Agent 对话：调用 generateText，工具自动执行（确认逻辑在工具 execute 内部），输出文本结果。
+ * 不使用 AI SDK 的 needsApproval 流程，避免 approval 消息与 Chat Completions API 不兼容。
+ */
+export const runAgentLoop = async (
   model: LanguageModel,
   system: string,
   tools: ToolSet,
   messages: ModelMessage[],
 ): Promise<void> => {
-  while (true) {
-    const result = await generateText({
-      model,
-      system,
-      tools,
-      messages,
-      stopWhen: stepCountIs(10),
-    })
+  const result = await generateText({
+    model,
+    system,
+    tools,
+    messages,
+    stopWhen: stepCountIs(10),
+  })
 
-    // 将 LLM 响应加入历史
-    messages.push(...result.response.messages)
+  // 只将最终文本加入历史（不保留中间的 tool_call/tool_result 消息，
+  // 避免 Chat Completions API 在后续请求中拒绝这些消息格式）
+  if (result.text) {
+    messages.push({ role: 'assistant', content: result.text })
+  }
 
-    // 检查是否有 approval 请求
-    const approvalRequests = result.content.filter((part) => part.type === 'tool-approval-request')
-
-    if (approvalRequests.length === 0) {
-      // 无 approval 请求 → 输出文本结果并结束
-      const textParts = result.content.filter((part) => part.type === 'text')
-      for (const part of textParts) {
-        console.log(part.text)
-      }
-      break
-    }
-
-    // 处理 approval 请求
-    const approvals: Array<{
-      type: 'tool-approval-response'
-      approvalId: string
-      approved: boolean
-      reason: string
-    }> = []
-
-    for (const req of approvalRequests) {
-      if (req.type !== 'tool-approval-request') continue
-
-      logger.info(`工具调用: ${req.toolCall.toolName}`)
-      console.log(JSON.stringify(req.toolCall.input, null, 2))
-
-      let confirmed = await p.confirm({
-        message: '是否执行此操作？',
-      })
-
-      if (p.isCancel(confirmed)) {
-        confirmed = false
-      }
-
-      approvals.push({
-        type: 'tool-approval-response',
-        approvalId: req.approvalId,
-        approved: !!confirmed,
-        reason: confirmed ? '用户已确认' : '用户已拒绝',
-      })
-    }
-
-    // 将 approval 响应加入消息，继续循环
-    messages.push({ role: 'tool', content: approvals })
+  // 输出文本结果
+  const textParts = result.content.filter((part) => part.type === 'text')
+  for (const part of textParts) {
+    console.log(part.text)
   }
 }
 
 export const startAgent = async (envOverride?: string): Promise<void> => {
   // 1. 加载配置
-  const config = loadConfig(envOverride)
+  let config: ReturnType<typeof loadConfig>
+  try {
+    config = loadConfig(envOverride)
+  } catch (err) {
+    logger.error((err as Error).message)
+    process.exit(1)
+  }
   if (!config.ai) {
     logger.error('请先运行 ycli env init 配置 AI 助手')
     process.exit(1)
@@ -134,10 +106,13 @@ export const startAgent = async (envOverride?: string): Promise<void> => {
 
     // 正常对话
     messages.push({ role: 'user', content: input })
+    // 暂停 readline 让 @clack/prompts 的 confirm 能正常读取 stdin
+    rl.pause()
     try {
       await runAgentLoop(model, system, tools, messages)
     } catch (err) {
       logger.error(`Agent 错误: ${err instanceof Error ? err.message : err}`)
     }
+    rl.resume()
   }
 }

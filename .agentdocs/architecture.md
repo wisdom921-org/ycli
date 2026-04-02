@@ -15,7 +15,7 @@
 | 代码工具 | biome | 代码格式化与检查 |
 | LLM 框架 | ai (Vercel AI SDK v6) | 统一多 provider 接口，内置 tool calling + approval |
 | LLM Provider | @ai-sdk/anthropic, @ai-sdk/openai, ollama-ai-provider-v2 | Claude / OpenAI / 本地 Ollama / OpenRouter（复用 @ai-sdk/openai） |
-| 测试 | vitest（通过 `bun --bun` 运行） | 单元测试，支持 AI SDK mock provider |
+| 测试 | vitest（通过 `bun --bun` 运行） | 三层测试：单元 + CLI 子进程冒烟 + Agent 集成，详见 `testing.md` |
 
 ## 目录结构
 
@@ -160,6 +160,48 @@ brew install ycli
 | HTTP | httpRequest | HTTP 请求 | 非 GET |
 
 ## 已知问题与 Workaround
+
+### 写操作确认在工具 execute 内部实现
+
+**背景**：AI SDK 的 `needsApproval` 机制产生的 `tool-approval-response` 消息只兼容 Responses API，不兼容 OpenRouter 等第三方 API 使用的 Chat Completions API（报 `Invalid prompt: The messages do not match the ModelMessage[] schema`）。
+
+**方案**：不使用 `needsApproval`，将确认逻辑移到工具的 `execute` 函数内部，通过 `@clack/prompts` 的 `confirm` 直接向用户确认。拒绝时返回 `{ error: '用户已拒绝此操作' }` 作为 tool result。这样消息数组中只有标准的 tool-call + tool-result，两种 API 都兼容。
+
+**注意**：`readline` 和 `@clack/prompts` 会争抢 stdin。REPL 在调用 `runAgentLoop` 前必须 `rl.pause()`，结束后 `rl.resume()`。
+
+### 消息历史只保留文本
+
+**背景**：`generateText` 的 `result.response.messages` 包含 tool-call、tool-result 等中间消息，这些格式在 Chat Completions API 的后续请求中可能不被接受。
+
+**方案**：`runAgentLoop` 只将最终文本 `{ role: 'assistant', content: result.text }` 加入 messages 历史，不保留中间的工具调用消息。`generateText` 内部（单轮 10 步内）的多步工具调用不受影响。
+
+**取舍**：模型不会"记住"之前轮次调用了哪些工具，但文本回复中通常包含工具结果的总结，足以维持对话上下文。
+
+### LLM 可能传 JSON 字符串而非对象
+
+**问题**：工具 inputSchema 中 `z.unknown()` 类型的字段（如 mongoExecute 的 `data`、httpRequest 的 `body`），LLM 可能传 JSON 字符串而非解析后的对象，导致 MongoDB 的 `insertOne` 等方法报错（`Attempted to assign to readonly property`）。
+
+**Workaround**：在 `execute` 中对这些字段做 `typeof x === 'string' ? JSON.parse(x) : x` 处理。已在 `mongo.ts` 和 `http.ts` 中实现。
+
+### OpenRouter 必须走 Chat Completions API
+
+**问题**：`@ai-sdk/openai` v3 的 `languageModel()` 默认使用 OpenAI 的 Responses API（`POST /responses`），OpenRouter 仅支持 Chat Completions API，带工具调用的请求会报 `Invalid Responses API request`。
+
+**Workaround**：`src/agent/provider.ts` 中注册 OpenRouter provider 时，将 `languageModel` 指向 `chat`：
+```typescript
+providers.openrouter = {
+  ...openrouterProvider,
+  languageModel: openrouterProvider.chat,
+}
+```
+
+**注意**：其他 OpenAI 兼容的第三方 API（如自建 vLLM、LiteLLM）同样需要此处理。仅 OpenAI 官方 API 支持 Responses API。
+
+### citty 父命令 run 行为
+
+**问题**：citty 匹配子命令后仍会调用父命令的 `run` 回调（`node_modules/citty/dist/index.mjs:196`），导致 `ycli env list` 等子命令执行后还会触发 Agent 启动。
+
+**Workaround**：`src/index.ts` 中将 `subCommands` 提取为独立对象，在 `run` 回调中检查 `process.argv[2]` 是否为已知子命令名，是则跳过。新增子命令时需同步更新 `subCommands` 对象。
 
 ### Bun + Vitest 模块解析 bug
 

@@ -67,10 +67,11 @@ export const buildSystemPrompt = (config: Config, env?: string | null): string =
     '',
     '## 规则',
     '1. 执行写操作前，先用对应的读工具确认数据状态',
-    '2. SQL 查询优先使用 LIMIT 限制返回行数，避免大量数据输出',
-    '3. 返回数据时使用简洁的表格或列表格式',
-    '4. 遇到错误时分析原因并给出修复建议',
-    '5. 不要编造不存在的表名或集合名——不确定时先查询 schema',
+    '2. 写工具（mysqlExecute/mongoExecute/httpRequest 非 GET）调用时系统会自动弹出确认提示，你不需要额外在文本中询问用户是否确认——直接调用工具即可',
+    '3. SQL 查询优先使用 LIMIT 限制返回行数，避免大量数据输出',
+    '4. 返回数据时使用简洁的表格或列表格式',
+    '5. 遇到错误时分析原因并给出修复建议',
+    '6. 不要编造不存在的表名或集合名——不确定时先查询 schema',
   )
 
   if (businessContext) {
