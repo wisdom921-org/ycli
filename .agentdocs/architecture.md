@@ -24,11 +24,11 @@ ycli/
 ├── src/
 │   ├── index.ts              # CLI 入口，命令注册
 │   ├── commands/             # 命令实现
-│   ├── agent/                # AI Agent 核心（子任务 2 起逐步建设）
-│   │   ├── provider.ts       # 多 provider 管理（已实现）
-│   │   ├── system-prompt.ts  # 动态 system prompt（子任务 4）
-│   │   ├── index.ts          # REPL 主循环（子任务 4）
-│   │   └── tools/            # Agent 工具定义（已实现：MySQL 4 + MongoDB 5 + HTTP 1）
+│   ├── agent/                # AI Agent 核心
+│   │   ├── index.ts          # REPL 主循环（startAgent + runAgentLoop）
+│   │   ├── provider.ts       # 多 provider 管理（createRegistry + getModel）
+│   │   ├── system-prompt.ts  # 动态 system prompt（含业务上下文注入）
+│   │   └── tools/            # Agent 工具定义（MySQL 4 + MongoDB 5 + HTTP 1）
 │   ├── services/             # 业务逻辑层
 │   │   ├── db/               # 数据库服务
 │   │   └── http/             # HTTP 服务
@@ -113,6 +113,51 @@ ycli/
 brew tap wisdom921/tap
 brew install ycli
 ```
+
+## AI Agent
+
+### 启动方式
+
+- `ycli`（无子命令）→ 启动 Agent REPL 交互循环
+- `ycli --env prd` → 指定环境启动
+
+### REPL 循环
+
+1. 用户输入 → 加入 messages 历史
+2. 调用 `generateText`（带 tools 定义，`stopWhen: stepCountIs(10)`）
+3. 检查返回结果：
+   - 纯文本 → 输出到终端
+   - 读工具调用 → SDK 自动执行 → 结果回传 LLM → 继续
+   - 写工具调用 → `needsApproval` 暂停 → `@clack/prompts` confirm → 构造 `tool-approval-response` → 继续
+
+### 内置命令
+
+- `/quit` `/exit` — 退出
+- `/clear` — 清空对话历史
+- `/model provider:model-id` — 临时切换模型（仅当前会话）
+
+### System Prompt
+
+- 动态构建，包含当前环境信息（MySQL/MongoDB/HTTP 连接信息）
+- 注入 "Look → Plan → Query" 工作流引导（先自省 schema，再规划，再查询）
+- 可选注入 `~/.ycli/business-context.md` 业务上下文
+
+### 工具层
+
+10 个工具，读写分离 + approval 流程：
+
+| 类别 | 工具 | 说明 | needsApproval |
+|------|------|------|:---:|
+| MySQL 自省 | mysqlListTables | 列出所有表 | - |
+| MySQL 自省 | mysqlDescribeTable | 表结构 + 样本行 | - |
+| MySQL 读 | mysqlQuery | 只读查询 | - |
+| MySQL 写 | mysqlExecute | 写操作 | ✓ |
+| MongoDB 自省 | mongoListCollections | 列出所有集合 | - |
+| MongoDB 自省 | mongoDescribeCollection | 采样推断结构 | - |
+| MongoDB 读 | mongoQuery | find/findOne/count | - |
+| MongoDB 读 | mongoAggregate | 聚合管道 | - |
+| MongoDB 写 | mongoExecute | 写操作 | ✓ |
+| HTTP | httpRequest | HTTP 请求 | 非 GET |
 
 ## 已知问题与 Workaround
 

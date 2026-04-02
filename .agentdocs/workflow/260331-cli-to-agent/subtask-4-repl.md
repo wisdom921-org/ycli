@@ -11,13 +11,13 @@
 
 ## TODO
 
-- [ ] 新建 `src/agent/system-prompt.ts`
-- [ ] 新建 `src/agent/index.ts`
-- [ ] 修改 `src/index.ts`
-- [ ] 删除 `src/commands/example.ts`
-- [ ] 新建测试 `src/agent/__tests__/repl.test.ts`
-- [ ] lint + typecheck + test + build 验证
-- [ ] 更新 `.agentdocs/architecture.md`
+- [x] 新建 `src/agent/system-prompt.ts`
+- [x] 新建 `src/agent/index.ts`
+- [x] 修改 `src/index.ts`
+- [x] 删除 `src/commands/example.ts`
+- [x] 新建测试 `src/agent/__tests__/repl.test.ts`
+- [x] lint + typecheck + test + build 验证
+- [x] 更新 `.agentdocs/architecture.md`
 
 ## 实施规格
 
@@ -117,7 +117,8 @@ const loadBusinessContext = (): string | null => {
 ```typescript
 import * as readline from 'node:readline/promises'
 import { stdin, stdout } from 'node:process'
-import { generateText, stepCountIs, type ModelMessage, type ToolApprovalResponse } from 'ai'
+import { generateText, stepCountIs, type ToolSet } from 'ai'
+import type { LanguageModel, ModelMessage } from 'ai'
 import * as p from '@clack/prompts'
 import { loadConfig, getCurrentEnv } from '@/config/index.ts'
 import { getModel } from '@/agent/provider.ts'
@@ -302,7 +303,7 @@ runMain(main)
 
 #### 测试策略
 
-使用 `MockLanguageModelV4`（from `ai/test`）mock LLM 响应，测试核心逻辑：
+使用 `MockLanguageModelV3`（from `ai/test`）mock LLM 响应，测试核心逻辑：
 
 ```
 describe('Agent REPL', () => {
@@ -364,10 +365,10 @@ describe('Agent REPL', () => {
 #### Mock 策略
 
 ```typescript
-import { MockLanguageModelV4 } from 'ai/test'
+import { MockLanguageModelV3 } from 'ai/test'
 
 // 纯文本回复
-new MockLanguageModelV4({
+new MockLanguageModelV3({
   doGenerate: async () => ({
     content: [{ type: 'text', text: '你好！' }],
     finishReason: { unified: 'stop', raw: undefined },
@@ -381,7 +382,8 @@ new MockLanguageModelV4({
 ```
 
 **注意**：
-- 任务规格原先提到 `MockLanguageModelV3`，但根据 AI SDK 最新文档，v6.x 最新版使用 `MockLanguageModelV4`。实施时以实际安装版本为准——先 `import { MockLanguageModelV4 } from 'ai/test'`，如不存在则回退 `MockLanguageModelV3`。
+- AI SDK v6 内部使用 V3 provider 协议，mock 类为 `MockLanguageModelV3`（非 V4）。V3 tool-call content 使用 `input` 字段（非 `args`）。
+- `maxSteps` 在 v6 中已移除，使用 `stopWhen: stepCountIs(N)` 替代。
 - REPL 循环本身（readline 交互）不做自动化测试——它是 IO 绑定的，通过手动验证覆盖。测试重点放在 `buildSystemPrompt` 和 `generateText` 集成逻辑。
 
 ---
@@ -412,4 +414,6 @@ new MockLanguageModelV4({
 
 | 错误描述 | 尝试次数 | 解决方案 |
 |----------|----------|----------|
-| （暂无） | | |
+| MockLanguageModelV3 tool-call 的 `args` 字段应为 `input`（V3 协议变更） | 2 | V3 spec 中 tool-call content 使用 `input: string` 而非 `args: string`，检查 `@ai-sdk/provider` 类型定义确认 |
+| `maxSteps` 在 AI SDK v6 不存在 | 1 | 替换为 `stopWhen: stepCountIs(N)` |
+| MockLanguageModelV3 的 `usage.inputTokens` 需要完整字段（noCache/cacheRead/cacheWrite） | 1 | 补全所有必需字段，提取为 `mockUsage` 常量复用 |
