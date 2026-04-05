@@ -5,9 +5,13 @@
 `architecture.md` - 项目技术架构与设计决策，修改任何代码时必读
 `testing.md` - 测试分层方案、已知坑点与验证清单，新增/修改测试时必读
 
+## 技术文档（续）
+
+`docs/README.md` - Agent 开发文档目录，涵盖 Vercel AI SDK、工具系统、Provider 管理等
+
 ## 活跃任务
 
-（无）
+`workflow/260403-pri-14-agent-docs.md` - PRI-14：在 docs/ 目录写入 Agent 开发入门文档
 
 ## 全局重要记忆
 
